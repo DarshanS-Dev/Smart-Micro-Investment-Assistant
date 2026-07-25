@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date as date_type
 
 from sqlalchemy import String, Float, Date, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -38,7 +38,7 @@ class Transaction(Base):
 
     # Date of the transaction itself — drives historical price lookups
     # and the chronological order round-ups must be processed in.
-    date: Mapped[date] = mapped_column(Date)
+    date: Mapped[date_type] = mapped_column(Date)
 
     merchant: Mapped[str] = mapped_column(String)
     amount: Mapped[float] = mapped_column(Float)
@@ -73,6 +73,6 @@ class Ledger(Base):
     asset: Mapped[str] = mapped_column(String)
 
     price_at_purchase: Mapped[float] = mapped_column(Float)
-    purchase_date: Mapped[date] = mapped_column(Date)
+    purchase_date: Mapped[date_type] = mapped_column(Date)
 
     user: Mapped["User"] = relationship(back_populates="ledger_entries")

@@ -1,4 +1,4 @@
-from datetime import datetime, date as date_type
+from datetime import datetime, timezone, date as date_type
 
 from sqlalchemy import String, Float, Date, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,7 +23,9 @@ class User(Base):
     # separate CSV uploads / generator runs.
     pending_roundup_balance: Mapped[float] = mapped_column(Float, default=0.0)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
     # One user -> many transactions, many ledger entries
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user")

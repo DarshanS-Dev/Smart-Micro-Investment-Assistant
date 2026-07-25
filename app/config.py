@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # and back down for a "watch it fire live" demo.
     ROUNDUP_THRESHOLD: float = 50.0
 
+    ROUNDUP_UNIT: float = 10.0
+
     # --- Dashboard polling (frontend reference only, not enforced server-side) ---
     DASHBOARD_POLL_SECONDS: int = 12
 

@@ -7,6 +7,7 @@ import { GridCanvas } from "@/components/ui/GridCanvas";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { SummaryStrip } from "@/components/dashboard/SummaryStrip";
 import { GrowthChart } from "@/components/dashboard/GrowthChart";
+import { PerAssetBreakdown } from "@/components/dashboard/PerAssetBreakdown";
 import { LedgerTable } from "@/components/dashboard/LedgerTable";
 import { SpendingInsights } from "@/components/dashboard/SpendingInsights";
 import { useRequireAuth } from "@/lib/useRequireAuth";
@@ -107,6 +108,7 @@ export default function DashboardPage() {
               onRefresh={handleRefresh}
             />
             <GrowthChart series={data.growth_series} lots={data.lots} />
+            <PerAssetBreakdown assets={data.per_asset} />
             <LedgerTable
               feed={data.transaction_feed}
               pendingBalance={data.pending_roundup_balance}

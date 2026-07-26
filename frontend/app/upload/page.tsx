@@ -12,8 +12,8 @@ import { useRequireAuth } from "@/lib/useRequireAuth";
 import { useToast } from "@/components/ui/Toast";
 import { uploadCsvWithProgress, ApiError } from "@/lib/api";
 import { parseTransactionsCsv, computeRoundupPreview } from "@/lib/csv";
-import { ASSET_LABEL, type AssetBucket } from "@/lib/types";
-import { formatINR } from "@/lib/utils";
+import { ASSET_LABEL } from "@/lib/types";
+import { formatINR, ASSET_LABEL_FALLBACK } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
 export default function UploadPage() {
@@ -57,12 +57,13 @@ export default function UploadPage() {
 
     setUploading(true);
     try {
-      const asset = (user?.asset_bucket ?? "nifty50") as AssetBucket;
       const response = await uploadCsvWithProgress(file, setUploadPct);
 
-      // Backend confirms ingestion; we render the preview from what we
-      // parsed client-side, annotated with the same round-up rule the
-      // server uses, since the upload response doesn't echo rows back.
+      // Backend confirms ingestion (app/routers/transactions.py) but
+      // POST /transactions/upload doesn't echo the parsed rows back, so
+      // the preview here is rendered from what we parsed client-side,
+      // annotated with the same round-up rule the server applies
+      // (compute_roundup: round up to nearest ₹10 — see lib/csv.ts).
       const preview: PreviewRow[] = parsedRows.map((r) => ({
         date: r.date,
         merchant: r.merchant,
@@ -75,16 +76,27 @@ export default function UploadPage() {
       if (response?.investments_executed && response.investments_executed.length > 0) {
         response.investments_executed.forEach((inv) => {
           push(
-            `Threshold crossed → ${formatINR(inv.amount_invested)} invested in ${ASSET_LABEL[inv.asset] ?? asset}`
+            `Threshold crossed → ${formatINR(inv.amount_invested)} invested in ${ASSET_LABEL[inv.asset] ?? ASSET_LABEL_FALLBACK}`
           );
         });
       }
     } catch (err) {
-      if (err instanceof ApiError && err.status === 422 && Array.isArray((err.detail as { detail?: unknown })?.detail)) {
-        const list = (err.detail as { detail: { row?: number; message?: string }[] }).detail;
-        setRowErrors(
-          list.map((e) => (e.row ? `Row ${e.row}: ${e.message ?? "invalid row"}` : e.message ?? "Invalid row"))
-        );
+      if (err instanceof ApiError && err.status === 400) {
+        // Same guard as GET /dashboard (see app/routers/transactions.py:
+        // "Pick an asset bucket before uploading transactions."). Handled
+        // identically to dashboard/page.tsx's 400 case — redirect back to
+        // onboarding rather than surfacing a generic upload-failed message
+        // for what's actually a missing-prerequisite state, not a real
+        // upload failure.
+        router.replace("/onboarding");
+        return;
+      }
+      // Backend's 422 body is { detail: "Row N in CSV is malformed: ..." }
+      // — a single plain string (app/routers/transactions.py::_parse_csv),
+      // never a structured { row, message }[] array. ApiError.message is
+      // already that string, so we just show it directly.
+      if (err instanceof ApiError && err.status === 422) {
+        setRowErrors([err.message]);
       } else {
         setClientError(err instanceof ApiError ? err.message : "Upload failed. Please try again.");
       }
@@ -119,7 +131,8 @@ export default function UploadPage() {
           </h1>
           <p className="mt-3 max-w-lg text-ink/60">
             Upload a CSV of your transactions and we&apos;ll start rounding up
-            the spare change into your {user?.asset_bucket ? ASSET_LABEL[user.asset_bucket] : "chosen asset"}.
+            the spare change into your{" "}
+            {user?.asset_bucket ? ASSET_LABEL[user.asset_bucket] : "chosen asset"}.
           </p>
         </motion.div>
 

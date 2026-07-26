@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   DashboardResponse,
   UploadResponse,
+  UserOut,
 } from "./types";
 
 export const API_BASE_URL =
@@ -22,6 +23,16 @@ export class ApiError extends Error {
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return window.sessionStorage.getItem("lpb_token");
+}
+
+/**
+ * Registered by AuthProvider so that a 401 from ANY request (token expired —
+ * the backend issues a flat 24h JWT with no refresh endpoint, see README gap
+ * notes) triggers a real logout + redirect instead of a silently broken UI.
+ */
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
 }
 
 async function request<T>(
@@ -66,10 +77,20 @@ async function request<T>(
     } catch {
       // no body
     }
+    // FastAPI's default error shape is { detail: string }. The one place
+    // this app raises row-level CSV errors (transactions/upload) also just
+    // uses a plain string (see app/routers/transactions.py::_parse_csv) —
+    // there is NO structured { row, message }[] shape from this backend,
+    // so we never try to parse one.
     const message =
       (detail && typeof detail === "object" && "detail" in detail
         ? String((detail as { detail: unknown }).detail)
         : undefined) || res.statusText || "Something went wrong.";
+
+    if (res.status === 401 && auth) {
+      onUnauthorized?.();
+    }
+
     throw new ApiError(message, res.status, detail);
   }
 
@@ -83,9 +104,10 @@ async function request<T>(
 }
 
 // --- Auth ---------------------------------------------------------------
+// Backend route is POST /auth/register, not /auth/signup.
 
 export function signup(email: string, password: string) {
-  return request<AuthResponse>("/auth/signup", {
+  return request<AuthResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ email, password }),
     auth: false,
@@ -101,9 +123,11 @@ export function login(email: string, password: string) {
 }
 
 // --- Onboarding -----------------------------------------------------------
+// Backend route is POST /onboarding/asset-bucket and returns the full
+// UserOut (not just { asset_bucket }).
 
 export function setBucket(asset_bucket: AssetBucket) {
-  return request<{ asset_bucket: AssetBucket }>("/user/bucket", {
+  return request<UserOut>("/onboarding/asset-bucket", {
     method: "POST",
     body: JSON.stringify({ asset_bucket }),
   });
@@ -152,6 +176,9 @@ export function uploadCsvWithProgress(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(body as UploadResponse);
       } else {
+        if (xhr.status === 401) onUnauthorized?.();
+        // Backend's 422 detail is a plain string (see _parse_csv in
+        // app/routers/transactions.py) — never a structured list.
         const message =
           (body && typeof body === "object" && "detail" in body
             ? String((body as { detail: unknown }).detail)
@@ -169,13 +196,22 @@ export function uploadCsvWithProgress(
 }
 
 // --- Dashboard -----------------------------------------------------------
+// Backend route is GET /dashboard (not /dashboard/summary). It has no
+// `has_data` field and no dedicated refresh endpoint — prices are computed
+// live via yfinance on every call, so re-fetching IS the refresh.
+// It returns 400 (not 404) if the user hasn't picked an asset bucket yet.
 
-export function getDashboardSummary() {
-  return request<DashboardResponse>("/dashboard/summary", { method: "GET" });
+export function getDashboard() {
+  return request<DashboardResponse>("/dashboard", { method: "GET" });
 }
 
-export function refreshPrices() {
-  return request<{ price_updated_at: string }>("/prices/refresh", {
-    method: "POST",
-  });
+/**
+ * GAP: there is no POST /prices/refresh endpoint on the backend.
+ * app/services/portfolio.py::build_dashboard already recomputes current
+ * prices from yfinance on every GET /dashboard call, so a "refresh" is
+ * just re-fetching the dashboard. This function exists only so callers
+ * don't need to know that — it is NOT a distinct backend capability.
+ */
+export function refreshDashboard() {
+  return getDashboard();
 }

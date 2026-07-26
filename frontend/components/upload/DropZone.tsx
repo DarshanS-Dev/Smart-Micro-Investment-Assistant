@@ -61,7 +61,12 @@ export function DropZone({
         {selectedFileName ? (
           <FileCsv size={40} weight="light" strokeWidth={1.5} />
         ) : (
-          <UploadSimple size={40} weight="light" strokeWidth={1.5} />
+          <motion.div
+            animate={dragActive ? { y: -8, opacity: 0.7 } : { y: [0, -4, 0], opacity: 1 }}
+            transition={dragActive ? { duration: 0.2, ease: "easeOut" } : { duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <UploadSimple size={40} weight="light" strokeWidth={1.5} />
+          </motion.div>
         )}
 
         <div>

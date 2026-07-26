@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+   LOUD PIGGY BANK — design tokens
+   Locked palette: lime / ink / warm-white + red/green for financial state
+   only. Do not introduce purple, blue, or gradients anywhere.
+   ------------------------------------------------------------------- */
+@theme {
+  --color-lime-500: #d6ff3d;
+  --color-lime-600: #c2e832;
+  --color-lime-100: #f3ffcf;
+  --color-ink: #0b0b0b;
+  --color-ink-80: rgba(11, 11, 11, 0.8);
+  --color-ink-30: rgba(11, 11, 11, 0.3);
+  --color-canvas: #fafaf7;
+  --color-canvas-dim: #f1f1ea;
+  --color-gridline: #e4e4dd;
+  --color-positive: #12a150;
+  --color-positive-tint: #e6f7ed;
+  --color-negative: #e5484d;
+  --color-negative-tint: #fdeceb;
+
+  --font-display: "ClashDisplay", "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Satoshi", "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --animate-pulse-edge: pulse-edge 1.6s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pulse-edge {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Faint 48px grid texture used behind brand-moment pages */
+.grid-texture {
+  background-image:
+    linear-gradient(to right, var(--color-gridline) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-gridline) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Visible keyboard focus ring, consistent everywhere */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-lime-500);
+  color: var(--color-ink);
+}
+
+/* Tabular numerals for every financial figure */
+.mono-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Custom scrollbar, kept quiet */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-ink-30); border-radius: 0; }

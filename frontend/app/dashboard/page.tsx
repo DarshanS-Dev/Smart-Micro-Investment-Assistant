@@ -11,8 +11,7 @@ import { LedgerTable } from "@/components/dashboard/LedgerTable";
 import { SpendingInsights } from "@/components/dashboard/SpendingInsights";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import { useAuth } from "@/lib/auth-context";
-import { getDashboardSummary, refreshPrices, ApiError } from "@/lib/api";
-import { DEV_BYPASS_TOKEN, MOCK_DASHBOARD } from "@/lib/mock-data";
+import { getDashboard, refreshDashboard, ApiError } from "@/lib/api";
 import type { DashboardResponse } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -28,28 +27,20 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const summary = await getDashboardSummary();
-      if (summary.has_data === false) {
+      const dashboard = await getDashboard();
+      // Backend has no `has_data` flag — GET /dashboard returns 200 with
+      // empty arrays/zeroed totals for a brand new user. We derive
+      // "nothing uploaded yet" from that instead of a dedicated field.
+      const hasData = dashboard.lots.length > 0 || dashboard.transaction_feed.length > 0;
+      if (!hasData) {
         router.replace("/upload");
         return;
       }
-      setData(summary);
+      setData(dashboard);
     } catch (err) {
-      // Backend unreachable in dev-bypass mode → show mock data.
-      const isNetworkError = err instanceof ApiError && err.status === 0;
-      const isDevBypass =
-        typeof window !== "undefined" &&
-        window.sessionStorage.getItem("lpb_token") === DEV_BYPASS_TOKEN;
-
-      if (isNetworkError && isDevBypass) {
-        setData(MOCK_DASHBOARD);
-        return;
-      }
-
-      // No data yet (404-style) or backend not reachable — fail soft to
-      // the upload flow rather than rendering a blank dashboard.
-      if (err instanceof ApiError && (err.status === 404 || err.status === 0)) {
-        router.replace("/upload");
+      if (err instanceof ApiError && err.status === 400) {
+        // Backend guard: asset_bucket not chosen yet.
+        router.replace("/onboarding");
         return;
       }
       setError(err instanceof ApiError ? err.message : "Couldn't load your dashboard.");
@@ -65,9 +56,11 @@ export default function DashboardPage() {
   }, [ready, authenticated, load]);
 
   async function handleRefresh() {
-    await refreshPrices();
-    const summary = await getDashboardSummary();
-    setData(summary);
+    // GAP: there is no POST /prices/refresh endpoint. GET /dashboard
+    // already recomputes current prices from yfinance on every call
+    // (app/services/portfolio.py), so "refresh" is just re-fetching it.
+    const dashboard = await refreshDashboard();
+    setData(dashboard);
   }
 
   if (!ready || !authenticated) {
@@ -120,6 +113,11 @@ export default function DashboardPage() {
               threshold={data.roundup_threshold}
               asset={user?.asset_bucket ?? null}
             />
+            {/* GAP: category_insights is always [] today — categorizer.py
+                is an empty stub on the backend, so Transaction.category
+                is never set. SpendingInsights already renders nothing
+                when the array is empty, which is the correct behavior
+                here (no fake categories) rather than a bug to hide. */}
             <SpendingInsights categories={data.category_insights} />
           </div>
         )}

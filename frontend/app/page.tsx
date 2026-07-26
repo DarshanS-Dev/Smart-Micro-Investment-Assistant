@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { PillToggle } from "@/components/ui/PillToggle";
 import { GridCanvas } from "@/components/ui/GridCanvas";
 import { useAuth } from "@/lib/auth-context";
-import { ApiError } from "@/lib/api";
-import { getDashboardSummary } from "@/lib/api";
-import { DEV_BYPASS_TOKEN, DEV_USER } from "@/lib/mock-data";
+import { ApiError, getDashboard } from "@/lib/api";
 
 type Mode = 0 | 1; // 0 = login, 1 = signup
 
@@ -19,7 +17,7 @@ const WORDS = ["Round", "up", "your", "spending."];
 
 export default function AuthPage() {
   const router = useRouter();
-  const { login, signup, token, ready, devLogin } = useAuth();
+  const { login, signup, token, ready, user } = useAuth();
 
   const [mode, setMode] = useState<Mode>(0);
   const [email, setEmail] = useState("");
@@ -33,16 +31,17 @@ export default function AuthPage() {
     confirm?: string;
   }>({});
 
-  // Already authenticated? skip the brand moment and route straight in.
+  // Already authenticated? skip the brand moment and route straight in,
+  // based on real onboarding state (asset_bucket) rather than a token flag.
   useEffect(() => {
     if (ready && token) {
-      if (token === DEV_BYPASS_TOKEN) {
-        router.replace("/dashboard");
-      } else {
+      if (!user?.asset_bucket) {
         router.replace("/onboarding");
+      } else {
+        router.replace("/upload");
       }
     }
-  }, [ready, token, router]);
+  }, [ready, token, user, router]);
 
   function validate(): boolean {
     const errors: typeof fieldErrors = {};
@@ -61,11 +60,6 @@ export default function AuthPage() {
     return Object.keys(errors).length === 0;
   }
 
-  function devBypass() {
-    devLogin(DEV_BYPASS_TOKEN, DEV_USER);
-    router.push("/dashboard");
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
@@ -79,16 +73,22 @@ export default function AuthPage() {
         return;
       }
 
-      await login(email, password);
+      const loggedInUser = await login(email, password);
+
+      if (!loggedInUser.asset_bucket) {
+        router.push("/onboarding");
+        return;
+      }
+
+      // GET /dashboard succeeds (200) even with zero transactions — it just
+      // returns empty lots/transaction_feed and zeroed totals. There's no
+      // `has_data` flag from the backend, so "has this user uploaded
+      // anything yet" is derived here from those arrays being empty.
       try {
-        const summary = await getDashboardSummary();
-        if (summary.has_data === false) {
-          router.push("/upload");
-        } else {
-          router.push("/dashboard");
-        }
+        const dashboard = await getDashboard();
+        const hasData = dashboard.lots.length > 0 || dashboard.transaction_feed.length > 0;
+        router.push(hasData ? "/dashboard" : "/upload");
       } catch {
-        // No data yet, or dashboard endpoint 404s until data exists.
         router.push("/upload");
       }
     } catch (err) {
@@ -256,16 +256,6 @@ export default function AuthPage() {
               </span>
             </Button>
           </form>
-
-          <div className="mt-4 border-t border-ink/10 pt-4">
-            <button
-              type="button"
-              onClick={devBypass}
-              className="w-full py-2 text-xs font-mono text-ink/40 hover:text-ink/70 transition-colors"
-            >
-              ⚡ dev bypass → dashboard
-            </button>
-          </div>
         </motion.div>
       </main>
     </GridCanvas>

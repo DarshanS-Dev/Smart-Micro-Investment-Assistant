@@ -1,6 +1,17 @@
 // Mirrors app/schemas.py on the backend, field for field.
 
+// NOTE: The onboarding schema (AssetBucketSelect) still validates
+// "crypto" as a Literal option, but app/utils/constants.py's
+// YFINANCE_TICKERS only maps "nifty50" and "gold" to a real ticker.
+// If a user picks "crypto", ledger_service.execute_investments will
+// raise ValueError the first time round-ups try to fire, and the
+// upload endpoint quietly refunds the jar without investing — i.e.
+// crypto users would just watch their spare change never invest.
+// This is a genuine backend gap, not something the frontend can fix,
+// so we disable the crypto option in the UI (see BucketCard) rather
+// than let anyone select a bucket that can never execute a trade.
 export type AssetBucket = "nifty50" | "gold" | "crypto";
+export const UNSUPPORTED_BUCKETS: readonly AssetBucket[] = ["crypto"];
 
 export interface UserOut {
   id: number;
@@ -69,6 +80,11 @@ export interface TransactionFeedItem {
   amount: number;
   roundup_amount: number;
   cumulative_roundup: number;
+  // GAP: app/services/categorizer.py is an empty stub, so the backend
+  // never actually sets Transaction.category — this will always be null
+  // today. Left typed as nullable (not removed) since the backend schema
+  // and DB column already support it; it'll "just work" the day
+  // categorizer.py is implemented, with no frontend change needed.
   category: string | null;
   status: FeedStatus;
 }
@@ -79,8 +95,10 @@ export interface CategoryInsight {
   roundup_generated: number;
 }
 
+// Backend's DashboardResponse (app/schemas.py) — no `has_data` field.
+// "Has this user uploaded anything yet" is derived client-side from
+// empty lots/transaction_feed instead (see app/dashboard/page.tsx).
 export interface DashboardResponse {
-  has_data?: boolean;
   total_invested: number;
   current_value: number;
   gain_loss_amount: number;

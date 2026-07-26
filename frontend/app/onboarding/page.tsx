@@ -10,7 +10,7 @@ import { GridCanvas } from "@/components/ui/GridCanvas";
 import { useAuth } from "@/lib/auth-context";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import { ApiError } from "@/lib/api";
-import type { AssetBucket } from "@/lib/types";
+import { UNSUPPORTED_BUCKETS, type AssetBucket } from "@/lib/types";
 
 const BUCKETS: {
   asset: AssetBucket;
@@ -41,6 +41,15 @@ const BUCKETS: {
     icon: CurrencyBtc,
   },
 ];
+
+// GAP: app/utils/constants.py::YFINANCE_TICKERS only maps "nifty50" and
+// "gold" to a real ticker. The onboarding schema still accepts "crypto",
+// but the first time a crypto user's round-up jar fires,
+// ledger_service.execute_investments raises ValueError and the upload
+// endpoint just refunds the jar — no trade ever executes, silently.
+// Disabling it here (frontend-only fix) rather than letting anyone pick
+// a bucket that can never actually invest.
+const DISABLED_REASON = "Not priced by the backend yet — investments can't execute for this bucket.";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -88,23 +97,28 @@ export default function OnboardingPage() {
         </motion.div>
 
         <div role="radiogroup" aria-label="Choose an asset" className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {BUCKETS.map((b, i) => (
-            <motion.div
-              key={b.asset}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 + i * 0.08 }}
-            >
-              <BucketCard
-                IconComponent={b.icon}
-                name={b.name}
-                description={b.description}
-                microcopy={b.microcopy}
-                selected={selected === b.asset}
-                onSelect={() => setSelected(b.asset)}
-              />
-            </motion.div>
-          ))}
+          {BUCKETS.map((b, i) => {
+            const disabled = UNSUPPORTED_BUCKETS.includes(b.asset);
+            return (
+              <motion.div
+                key={b.asset}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 + i * 0.08 }}
+              >
+                <BucketCard
+                  IconComponent={b.icon}
+                  name={b.name}
+                  description={b.description}
+                  microcopy={b.microcopy}
+                  selected={selected === b.asset}
+                  onSelect={() => setSelected(b.asset)}
+                  disabled={disabled}
+                  disabledReason={disabled ? DISABLED_REASON : undefined}
+                />
+              </motion.div>
+            );
+          })}
         </div>
 
         {error && (

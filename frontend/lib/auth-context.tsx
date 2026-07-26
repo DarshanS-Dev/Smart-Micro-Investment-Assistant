@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import * as api from "./api";
+import { setUnauthorizedHandler } from "./api";
 import type { AssetBucket, UserOut } from "./types";
 
 const TOKEN_KEY = "lpb_token";
@@ -21,7 +22,6 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<UserOut>;
   logout: () => void;
   setBucket: (asset: AssetBucket) => Promise<void>;
-  devLogin: (token: string, user: UserOut) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -33,6 +33,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // One-time hydration from sessionStorage on mount, not a render-loop sync.
+    //
+    // TOKEN STORAGE — deliberate choice, not a default:
+    // The backend issues a plain bearer JWT (app/auth/jwt_handler.py) with
+    // no httpOnly-cookie option and no refresh-token endpoint at all — so
+    // "in-memory only" storage would log the user out on every page reload,
+    // which the integration spec also requires us to survive. sessionStorage
+    // is the least-bad option available given what the backend exposes: it
+    // survives reloads but not new tabs/windows and clears on tab close,
+    // unlike localStorage. It is still readable by any script on the page
+    // (XSS risk) — flagged here and in the final summary as an accepted
+    // risk, not a preferred pattern, pending backend support for httpOnly
+    // cookies.
     try {
       const storedToken = window.sessionStorage.getItem(TOKEN_KEY);
       const storedUser = window.sessionStorage.getItem(USER_KEY);
@@ -53,6 +65,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(nextUser);
   }
 
+  function logout() {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(USER_KEY);
+    setToken(null);
+    setUser(null);
+  }
+
+  // Backend has no refresh-token flow, so a 401 on any authenticated
+  // request (expired/invalid JWT) means "the session is over" — force a
+  // real logout instead of leaving the app in a half-authenticated state.
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   async function signup(email: string, password: string) {
     const res = await api.signup(email, password);
     persist(res.token.access_token, res.user);
@@ -65,24 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user;
   }
 
-  function logout() {
-    window.sessionStorage.removeItem(TOKEN_KEY);
-    window.sessionStorage.removeItem(USER_KEY);
-    setToken(null);
-    setUser(null);
-  }
-
   async function setBucketAndPersist(asset: AssetBucket) {
-    await api.setBucket(asset);
-    setUser((prev) => {
-      const next = prev ? { ...prev, asset_bucket: asset } : prev;
-      if (next) window.sessionStorage.setItem(USER_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
-
-  function devLogin(fakeToken: string, fakeUser: UserOut) {
-    persist(fakeToken, fakeUser);
+    const updated = await api.setBucket(asset);
+    setUser(updated);
+    window.sessionStorage.setItem(USER_KEY, JSON.stringify(updated));
   }
 
   return (
@@ -95,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         setBucket: setBucketAndPersist,
-        devLogin,
       }}
     >
       {children}

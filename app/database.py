@@ -1,17 +1,16 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# --- Load DATABASE_URL from environment ---
-# Expected format (Neon gives you this on your project dashboard):
-#   postgresql://<user>:<password>@<host>/<dbname>?sslmode=require
-RAW_DATABASE_URL = os.getenv("DATABASE_URL")
+from app.config import settings
 
-if not RAW_DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL is not set. Add it to your .env file "
-        "(copy the connection string from your Neon dashboard)."
-    )
+# --- Resolve DATABASE_URL via pydantic-settings (config.py) ---
+# Settings.DATABASE_URL is a required field with no default, so if it's
+# missing from .env / the real environment, pydantic-settings raises a
+# clear validation error the moment `settings` is imported anywhere in
+# the app — fails loudly at startup, same spirit as the old RuntimeError,
+# but now there's exactly ONE place (config.py) responsible for reading
+# env vars, instead of this file also reaching into os.getenv directly.
+RAW_DATABASE_URL = settings.DATABASE_URL
 
 # Neon sometimes provides "postgresql://" or "postgres://" —
 # SQLAlchemy needs the driver explicitly named as "postgresql+psycopg2://"

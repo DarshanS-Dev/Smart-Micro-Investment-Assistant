@@ -5,4 +5,5 @@ build/
 .env
 app/database.py
 .next/
+.next/
 

@@ -23,6 +23,7 @@ from app.schemas import (
     GrowthPoint,
     LedgerLotOut,
     TransactionFeedItem,
+    CategoryInsight,
 )
 
 
@@ -157,6 +158,39 @@ def build_dashboard(db: Session, user: User) -> DashboardResponse:
             )
         )
 
+    # --- category insights: "how much of your investment did this
+    # category fund" ------------------------------------------------------
+    # Deliberately counts ONLY transactions already stamped "invested"
+    # above (i.e. their roundup actually crossed threshold and became a
+    # real ledger row) — money still sitting in the jar ("accumulating")
+    # hasn't funded anything yet, so it's excluded here. This keeps the
+    # framing honest: "Swiggy has funded ₹340 so far", not a projection.
+    #
+    # Reuses transaction_feed (already built above) instead of re-querying
+    # or re-replaying the jar logic a second time.
+    category_totals: dict[str, dict[str, float]] = {}
+    for item in transaction_feed:
+        if item.status != "invested":
+            continue
+        cat = item.category or "Other"
+        bucket = category_totals.setdefault(
+            cat, {"total_spent": 0.0, "roundup_generated": 0.0}
+        )
+        bucket["total_spent"] += item.amount
+        bucket["roundup_generated"] += item.roundup_amount
+
+    category_insights = [
+        CategoryInsight(
+            category=cat,
+            total_spent=round(totals["total_spent"], 2),
+            roundup_generated=round(totals["roundup_generated"], 2),
+        )
+        for cat, totals in category_totals.items()
+    ]
+    # Sort by roundup_generated descending — frontend's donut chart / list
+    # reads better biggest-contributor-first (e.g. "Swiggy funded ₹340").
+    category_insights.sort(key=lambda c: c.roundup_generated, reverse=True)
+
     return DashboardResponse(
         total_invested=total_invested,
         current_value=current_value,
@@ -169,5 +203,5 @@ def build_dashboard(db: Session, user: User) -> DashboardResponse:
         transaction_feed=transaction_feed,
         pending_roundup_balance=user.pending_roundup_balance,
         roundup_threshold=settings.ROUNDUP_THRESHOLD,
-        category_insights=[],
+        category_insights=category_insights,
     )

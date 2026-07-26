@@ -10,6 +10,14 @@ This file is the ONLY writer/committer for this flow. roundup.py and
 ledger_service.py stay pure (no Session) by design — all DB writes
 happen here, in one commit.
 
+Categorization: categorizer.categorize() is called here, once per
+transaction, right where Transaction rows are built — same spot for
+BOTH the CSV path and the synthetic path, since both already funnel
+through the same `incoming: list[TransactionIn]` by this point. This
+is deliberately the ONLY place category gets assigned; nothing
+downstream (roundup.py, ledger_service.py, portfolio.py) computes it —
+they just read Transaction.category back off the row.
+
 Partial-success behavior (agreed): transactions ALWAYS persist. If
 ledger_service.execute_investments fails (yfinance couldn't price the
 batch), the jar is NOT reset — we add back the full sum of that
@@ -27,7 +35,7 @@ from app.database import get_db
 from app.auth.dependencies import get_current_user
 from app.models import User, Transaction, Ledger
 from app.schemas import TransactionIn, UploadResponse, InvestmentFired
-from app.services import synthetic_data, roundup, ledger_service
+from app.services import synthetic_data, roundup, ledger_service, categorizer
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -97,7 +105,8 @@ def upload_transactions(
     )
 
     # --- 3. persist Transaction rows — ALWAYS, regardless of what happens
-    #        with investment execution below.
+    #        with investment execution below. category is assigned here,
+    #        once, via categorizer.categorize() — the only place it's set.
     for processed in result.processed_transactions:
         db.add(
             Transaction(
@@ -105,6 +114,7 @@ def upload_transactions(
                 date=processed.transaction.date,
                 merchant=processed.transaction.merchant,
                 amount=processed.transaction.amount,
+                category=categorizer.categorize(processed.transaction.merchant),
                 roundup_amount=processed.roundup_amount,
             )
         )

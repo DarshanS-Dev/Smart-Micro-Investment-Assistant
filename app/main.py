@@ -4,37 +4,25 @@ app/main.py
 Entry point. Wires together: DB table creation (create_all — no Alembic
 yet, deliberately skipped for hackathon speed, see config discussion),
 CORS, and routers.
-
-NOTE: onboarding.py and dashboard.py aren't built yet. Their
-include_router lines are left commented out below — uncomment the
-two marked lines the moment those files exist. Everything else here
-is runnable right now with just auth + transactions.
 """
+
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app.routers import auth, transactions
-# from app.routers import onboarding, dashboard  
-
-app = FastAPI(title="Smart Expense & Micro-Investment Assistant")
-
-# --- CORS ---
-# Wildcarded for hackathon speed — frontend origin isn't fixed/known yet.
-# Fine for a demo, would need locking down for anything real.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from app.routers import onboarding, dashboard 
 
 
-@app.on_event("startup")
-def on_startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """
+    Replaces the deprecated @app.on_event("startup") hook. Code before
+    `yield` runs on startup, code after would run on shutdown (nothing
+    needed there for this project).
+
     create_all() instead of Alembic (not set up yet — deliberate call,
     revisit only if time permits at the very end). Creates any tables
     that don't exist yet; no-ops for ones that already do. Won't alter
@@ -50,6 +38,21 @@ def on_startup() -> None:
     except Exception as exc:
         print(f"[startup] DB CONNECTION FAILED: {exc}")
         raise
+    yield
+
+
+app = FastAPI(title="Smart Expense & Micro-Investment Assistant", lifespan=lifespan)
+
+# --- CORS ---
+# Wildcarded for hackathon speed — frontend origin isn't fixed/known yet.
+# Fine for a demo, would need locking down for anything real.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -62,5 +65,5 @@ def health_check():
 # not here — main.py just includes them.
 app.include_router(auth.router)
 app.include_router(transactions.router)
-# app.include_router(onboarding.router)  
-# app.include_router(dashboard.router)   
+app.include_router(onboarding.router)
+app.include_router(dashboard.router)

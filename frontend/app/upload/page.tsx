@@ -81,6 +81,16 @@ export default function UploadPage() {
         });
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 400) {
+        // Same guard as GET /dashboard (see app/routers/transactions.py:
+        // "Pick an asset bucket before uploading transactions."). Handled
+        // identically to dashboard/page.tsx's 400 case — redirect back to
+        // onboarding rather than surfacing a generic upload-failed message
+        // for what's actually a missing-prerequisite state, not a real
+        // upload failure.
+        router.replace("/onboarding");
+        return;
+      }
       // Backend's 422 body is { detail: "Row N in CSV is malformed: ..." }
       // — a single plain string (app/routers/transactions.py::_parse_csv),
       // never a structured { row, message }[] array. ApiError.message is

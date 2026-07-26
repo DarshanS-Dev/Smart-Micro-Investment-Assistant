@@ -1,0 +1,29 @@
+# --- Web framework / server ---
+fastapi
+uvicorn[standard]
+
+# --- Database ---
+sqlalchemy
+alembic
+psycopg2-binary          # Neon (Postgres) driver
+
+# --- Validation / settings ---
+pydantic
+pydantic-settings
+email-validator          # required for Pydantic's EmailStr
+
+# --- Auth ---
+python-jose[cryptography]   # JWT encode/decode
+bcrypt                        # password hashing (used directly, not via passlib —
+                               # passlib is unmaintained and breaks with bcrypt>=4.0)# --- We
+python-multipart              # form/file upload support (CSV upload endpoint)
+
+# --- Market data ---
+yfinance                 # Nifty50 / Gold ETF, current + historical prices
+requests                 # CoinGecko API calls (crypto prices)
+
+# --- Data handling ---
+pandas                   # CSV parsing, synthetic data generation
+
+# --- Env ---
+python-dotenv             # only needed if you ever read .env outside pydantic-settings

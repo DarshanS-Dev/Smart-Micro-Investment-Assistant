@@ -46,9 +46,13 @@ export function BucketCard({
         {selected && <Check size={14} weight="bold" className="text-lime-500" />}
       </div>
 
-      <span className="flex h-12 w-12 items-center justify-center border-2 border-ink bg-canvas">
+      <motion.span 
+        className="flex h-12 w-12 items-center justify-center border-2 border-ink bg-canvas"
+        animate={selected ? { scale: [1, 1.15, 1], rotate: [0, -5, 0] } : { scale: 1, rotate: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+      >
         <IconComponent size={24} weight="light" strokeWidth={1.5} />
-      </span>
+      </motion.span>
 
       <div>
         <h3 className="font-display text-2xl font-semibold tracking-[-0.01em]">{name}</h3>

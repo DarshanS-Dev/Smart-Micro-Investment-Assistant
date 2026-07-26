@@ -108,9 +108,19 @@ export default function AuthPage() {
         {/* Hero headline moment */}
         <div className="flex-1">
           <div className="mb-6 flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center border-2 border-ink bg-lime-500">
-              <PiggyBank size={20} weight="fill" />
-            </span>
+            <motion.div 
+              className="relative flex h-9 w-9 items-center justify-center border-2 border-ink bg-lime-500 overflow-hidden"
+              animate={{ y: [0, -2, 0] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <motion.div
+                initial={{ y: -15, opacity: 0 }}
+                animate={{ y: [-15, 0, 5], opacity: [0, 1, 0] }}
+                transition={{ duration: 0.6, ease: "easeIn", delay: 0.2 }}
+                className="absolute top-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-ink"
+              />
+              <PiggyBank size={20} weight="fill" className="relative z-10" />
+            </motion.div>
             <span className="font-display text-sm font-semibold uppercase tracking-[0.2em]">
               Loud Piggy Bank
             </span>

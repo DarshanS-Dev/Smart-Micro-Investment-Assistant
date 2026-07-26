@@ -71,7 +71,24 @@ export function LedgerTable({ feed, pendingBalance, threshold, asset }: LedgerTa
                     <td className="py-2.5 text-right">
                       {executed ? (
                         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-positive">
-                          <CheckCircle size={14} weight="fill" />
+                          {i === 0 ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <motion.path 
+                                initial={{ pathLength: 0 }} 
+                                animate={{ pathLength: 1 }} 
+                                transition={{ duration: 0.4, ease: "easeOut" }} 
+                                d="M22 11.08V12a10 10 0 1 1-5.93-9.14" 
+                              />
+                              <motion.path 
+                                initial={{ pathLength: 0 }} 
+                                animate={{ pathLength: 1 }} 
+                                transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }} 
+                                d="M22 4L12 14.01l-3-3" 
+                              />
+                            </svg>
+                          ) : (
+                            <CheckCircle size={14} weight="fill" />
+                          )}
                           Executed
                         </span>
                       ) : (

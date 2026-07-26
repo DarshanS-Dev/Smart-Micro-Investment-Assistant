@@ -118,7 +118,6 @@ export default function DashboardPage() {
             {/* GAP: category_insights is always [] today — categorizer.py
                 is an empty stub on the backend, so Transaction.category
                 is never set. SpendingInsights already renders nothing
-                when the array is empty, which is the correct behavior
                 here (no fake categories) rather than a bug to hide. */}
             <SpendingInsights categories={data.category_insights} />
           </div>

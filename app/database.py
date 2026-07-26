@@ -1,4 +1,3 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
@@ -6,7 +5,13 @@ from app.config import settings
 # --- Load DATABASE_URL from environment ---
 # Expected format (Neon gives you this on your project dashboard):
 #   postgresql://<user>:<password>@<host>/<dbname>?sslmode=require
-RAW_DATABASE_URL = settings.DATABASE_URL
+RAW_DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not RAW_DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Add it to your .env file "
+        "(copy the connection string from your Neon dashboard)."
+    )
 
 # Neon sometimes provides "postgresql://" or "postgres://" —
 # SQLAlchemy needs the driver explicitly named as "postgresql+psycopg2://"
